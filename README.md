@@ -1,13 +1,15 @@
 # timeseries-expr
 
-A small C++17 expression parser/evaluator for arithmetic over `TimeSeries` values stored in an environment map.
+A small C++17 expression compiler for arithmetic expressions over **variables** and **scalars**:
 
-- Parses assignments like: `z = a + b - c / 2`
-- Supports: identifiers, numbers, `+ - * /`, parentheses, unary minus.
-- Compiles to Reverse Polish Notation (RPN) via shunting-yard, then evaluates with a stack machine.
+```text
+z = a + b - c / 2
+z = `total return` + carry / 2
+s = sumproduct(a, b)
+```
 
-This repo ships with a **stub `TimeSeries`** implementation (vector of doubles) so the parser is testable.
-Replace it with your real time series type (and alignment semantics) by implementing the required operators.
+It compiles expressions into a small **bytecode program** (stack machine). Evaluation is **backend-driven**:
+the parser/compiler knows nothing about your `TimeSeries` type.
 
 ## Build & test
 
@@ -17,22 +19,20 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-## Quick usage
+## Using it
+
+See [`examples/toy_backend.cpp`](examples/toy_backend.cpp) for a minimal backend that supports:
+- a toy "TimeSeries" as `std::vector<double>`
+- scalars (`double`)
+- elementwise arithmetic and `sumproduct`
+
+Core API:
 
 ```cpp
-#include <tsexpr/expr.hpp>
+#include <tsexpr/parser.hpp>
 
-ts::expr::Env env;
-env["a"] = TimeSeries{ {1,2,3} };
-env["b"] = TimeSeries{ {10,20,30} };
-env["c"] = TimeSeries{ {2,4,6} };
-
-ts::expr::execute_assignment("z = a + b - c / 2", env);
+tsexpr::Program p = tsexpr::compile("z = `total return` + carry / 2");
+p.execute(backend);
 ```
 
-## Design notes
-
-- Tokenize → Shunting-yard (RPN) → Evaluate.
-- Unary minus is represented as an internal `NEG` operator.
-- Evaluation uses `std::variant<TimeSeries, double>` to allow scalar literals.
-- Assignment currently requires the expression to evaluate to `TimeSeries`.
+Where `backend` provides a small set of operations (load/store, arithmetic, function call dispatch).
